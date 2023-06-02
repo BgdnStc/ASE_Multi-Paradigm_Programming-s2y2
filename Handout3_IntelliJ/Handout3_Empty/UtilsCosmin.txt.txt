@@ -1,0 +1,424 @@
+package ro.ase.acs.classes;
+
+import java.io.*;
+import java.util.*;
+
+public class Utils {
+
+	public static void matchDayReport(List<HandballMatch> matches, String filename) throws IOException {
+		FileOutputStream fop = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fop);
+		BufferedWriter bw = new BufferedWriter(osw);
+
+		StringBuilder sb = new StringBuilder();
+		for(HandballMatch i : matches) {
+			sb.append(i.getHomeTeam());
+			sb.append(" ");
+			sb.append(String.format("%d", i.getGoalsHomeTeam()));
+			sb.append(" - ");
+			sb.append(String.format("%d", i.getGoalsAwayTeam()));
+			sb.append(" ");
+			sb.append(i.getAwayTeam());
+			sb.append("\n");
+			bw.write(sb.toString());
+			sb.delete(0, sb.length());
+		}
+		bw.close();
+	}
+
+	public static List<HandballMatch> readFromCSV(String filename) throws IOException {
+		List<HandballMatch> listTemp = new ArrayList();
+		File file = new File(filename);
+		if (!file.exists() || !file.canRead()) {
+			return listTemp;
+		}
+		try{
+			FileInputStream fip = new FileInputStream(filename);
+			InputStreamReader isr = new InputStreamReader(fip);
+			BufferedReader br = new BufferedReader(isr);
+
+			String line;
+			HandballMatch hm = new HandballMatch();
+			br.readLine();
+			while ((line = br.readLine()) != null) {
+				String[] team = line.split(",");
+
+				if (team.length == 4) {
+					String home = team[0].trim();
+					String away = team[1].trim();
+					int goalsHome = Integer.parseInt(team[2].trim());
+					int goalsAway = Integer.parseInt(team[3].trim());
+
+					HandballMatch match = new HandballMatch();
+					match.setAwayTeam(away);
+					match.setGoalsAwayTeam(goalsAway);
+					match.setGoalsHomeTeam(goalsHome);
+					match.setHomeTeam(home);
+					listTemp.add(match);
+				}
+			}
+
+			br.close();
+			isr.close();
+			fip.close();
+		}catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return listTemp;
+	}
+
+	public static int secretInfo(String filename) throws IOException {
+		FileInputStream fis = new FileInputStream(filename);
+		DataInputStream dis = new DataInputStream(fis);
+		int secretNumber = 0;
+
+		try {
+			dis.skip(12);
+			secretNumber = dis.readInt();
+		} finally {
+			if (dis != null) dis.close();
+			if (fis != null) fis.close();
+		}
+
+		return secretNumber;
+	}
+
+	public static void serialize(List<HandballMatch> matches, String filename) throws IOException {
+		FileOutputStream fos = new FileOutputStream(filename);
+		DataOutputStream dos = new DataOutputStream(fos);
+
+		for(HandballMatch match : matches) {
+			dos.writeUTF(match.getHomeTeam());
+			dos.writeUTF(match.getAwayTeam());
+			dos.writeInt(match.getGoalsHomeTeam());
+			dos.writeInt(match.getGoalsAwayTeam());
+		}
+
+		fos.close();
+		dos.close();
+	}
+
+	public static List<HandballMatch> deserialize(String filename) throws IOException {
+		List<HandballMatch> matches = new ArrayList<>();
+
+		FileInputStream fis = new FileInputStream(filename);
+		DataInputStream dis = new DataInputStream(fis);
+
+		while(dis.available() > 0) {
+			String homeTeam = dis.readUTF();
+			String awayTeam = dis.readUTF();
+			int goalsHome = dis.readInt();
+			int goalsAway = dis.readInt();
+			HandballMatch match = new HandballMatch();
+			match.setHomeTeam(homeTeam);
+			match.setGoalsHomeTeam(goalsHome);
+			match.setAwayTeam(awayTeam);
+			match.setGoalsAwayTeam(goalsAway);
+			matches.add(match);
+		}
+
+		dis.close();
+		fis.close();
+		return matches;
+	}
+
+	public static void writeHeader(String filename) throws IOException {
+		FileOutputStream fop = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fop);
+		BufferedWriter bw = new BufferedWriter(osw);
+
+		bw.write("NO");
+		bw.write(", ");
+		bw.write("TEAM");
+		bw.write(", ");
+		bw.write("PTS");
+		bw.write(", ");
+		bw.write("GF");
+		bw.write(", ");
+		bw.write("GA");
+		bw.write(", ");
+		bw.write("GD");
+
+		bw.close();
+	}
+
+	public static void writePoints(String filename, List<HandballMatch> matches) throws IOException {
+
+		FileOutputStream fop = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fop);
+		BufferedWriter bw = new BufferedWriter(osw);
+
+		Map<String, Integer> points = new HashMap<>();
+
+		for (HandballMatch i : matches) {
+			int homePoints = 0;
+			int awayPoints = 0;
+			if(i.getGoalsAwayTeam() > i.getGoalsHomeTeam()) {
+				awayPoints = 3;
+			} else if (i.getGoalsAwayTeam() == i.getGoalsHomeTeam()) {
+				awayPoints = 1;
+				homePoints = 1;
+			} else {
+				homePoints = 3;
+			}
+
+			if(points.containsKey(i.getHomeTeam()))
+				points.put(i.getHomeTeam(), homePoints + points.get(i.getHomeTeam()));
+			else
+				points.put(i.getHomeTeam(), homePoints);
+
+			if(points.containsKey(i.getAwayTeam()))
+				points.put(i.getAwayTeam(), awayPoints + points.get(i.getAwayTeam()));
+			else
+				points.put(i.getAwayTeam(), awayPoints);
+		}
+
+		FileWriter fw = new FileWriter(filename);
+		fw.write("TEAM,POINTS\n");
+		for (String team : points.keySet()) {
+			fw.write(team + ", " + points.get(team) + "\n");
+		}
+		fw.close();
+	}
+
+	public static void writePointsAndGoals(String filename, List<HandballMatch> matches) throws IOException {
+		FileOutputStream fop = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fop);
+		BufferedWriter bw = new BufferedWriter(osw);
+
+		Map<String, Integer> points = new HashMap<>();
+		Map<String, Integer> goalsFor = new HashMap<>();
+		Map<String, Integer> goalsAgainst = new HashMap<>();
+		Map<String, Integer> goalsDifference = new HashMap<>();
+
+		int homePoints;
+		int awayPoints;
+
+		for (HandballMatch i : matches) {
+			homePoints = 0;
+			awayPoints = 0;
+			if(i.getGoalsAwayTeam() > i.getGoalsHomeTeam()) {
+				awayPoints = 3;
+			} else if (i.getGoalsAwayTeam() == i.getGoalsHomeTeam()) {
+				awayPoints = 1;
+				homePoints = 1;
+			} else {
+				homePoints = 3;
+			}
+
+			if(points.containsKey(i.getHomeTeam()))
+			{
+				points.put(i.getHomeTeam(), homePoints + points.get(i.getHomeTeam()));
+
+			}
+			else
+				points.put(i.getHomeTeam(), homePoints);
+
+
+			if(points.containsKey(i.getAwayTeam()))
+			{
+				points.put(i.getAwayTeam(), awayPoints + points.get(i.getAwayTeam()));
+			}
+			else
+				points.put(i.getAwayTeam(), awayPoints);
+
+			goalsFor.put(i.getHomeTeam(), goalsFor.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsHomeTeam());
+			goalsAgainst.put(i.getHomeTeam(), goalsAgainst.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsAwayTeam());
+			goalsDifference.put(i.getHomeTeam(), goalsDifference.getOrDefault(i.getHomeTeam(), 0) + (i.getGoalsHomeTeam() - i.getGoalsAwayTeam()));
+
+			goalsFor.put(i.getAwayTeam(), goalsFor.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsAwayTeam());
+			goalsAgainst.put(i.getAwayTeam(), goalsAgainst.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsHomeTeam());
+			goalsDifference.put(i.getAwayTeam(), goalsDifference.getOrDefault(i.getAwayTeam(), 0) + (i.getGoalsAwayTeam() - i.getGoalsHomeTeam()));
+		}
+
+		FileWriter fw = new FileWriter(filename);
+		fw.write("TEAM,POINTS\n");
+		for (String team : points.keySet()) {
+			fw.write(team + ", " + points.get(team) + ", " + goalsFor.get(team) + ", " + goalsAgainst.get(team) + ", " + goalsDifference.get(team) + "\n");
+		}
+		fw.close();
+	}
+
+	public static void leagueTable(String filename, List<HandballMatch> matches) throws IOException {
+		Map<String, Integer> points = new HashMap<>();
+		Map<String, Integer> goalsFor = new HashMap<>();
+		Map<String, Integer> goalsAgainst = new HashMap<>();
+		Map<String, Integer> goalsDifference = new HashMap<>();
+
+		int homePoints;
+		int awayPoints;
+
+		for (HandballMatch i : matches) {
+			homePoints = 0;
+			awayPoints = 0;
+			if(i.getGoalsAwayTeam() > i.getGoalsHomeTeam()) {
+				awayPoints = 3;
+			} else if (i.getGoalsAwayTeam() == i.getGoalsHomeTeam()) {
+				awayPoints = 1;
+				homePoints = 1;
+			} else {
+				homePoints = 3;
+			}
+
+			if(points.containsKey(i.getHomeTeam()))
+			{
+				points.put(i.getHomeTeam(), homePoints + points.get(i.getHomeTeam()));
+
+			}
+			else
+				points.put(i.getHomeTeam(), homePoints);
+
+
+			if(points.containsKey(i.getAwayTeam()))
+			{
+				points.put(i.getAwayTeam(), awayPoints + points.get(i.getAwayTeam()));
+			}
+			else
+				points.put(i.getAwayTeam(), awayPoints);
+
+			goalsFor.put(i.getHomeTeam(), goalsFor.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsHomeTeam());
+			goalsAgainst.put(i.getHomeTeam(), goalsAgainst.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsAwayTeam());
+			goalsDifference.put(i.getHomeTeam(), goalsDifference.getOrDefault(i.getHomeTeam(), 0) + (i.getGoalsHomeTeam() - i.getGoalsAwayTeam()));
+
+			goalsFor.put(i.getAwayTeam(), goalsFor.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsAwayTeam());
+			goalsAgainst.put(i.getAwayTeam(), goalsAgainst.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsHomeTeam());
+			goalsDifference.put(i.getAwayTeam(), goalsDifference.getOrDefault(i.getAwayTeam(), 0) + (i.getGoalsAwayTeam() - i.getGoalsHomeTeam()));
+		}
+
+
+		List<Map.Entry<String, Integer>> sortedTeams = new ArrayList<>(points.entrySet());
+
+		for (int i = 0; i < sortedTeams.size(); i++) {
+			for (int j = i + 1; j < sortedTeams.size(); j++) {
+				Map.Entry<String, Integer> entry1 = sortedTeams.get(i);
+				Map.Entry<String, Integer> entry2 = sortedTeams.get(j);
+				if (entry1.getValue() < entry2.getValue()) {
+					sortedTeams.set(i, entry2);
+					sortedTeams.set(j, entry1);
+				}
+			}
+		}
+
+
+		FileOutputStream fos = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fos);
+		try (BufferedWriter bw = new BufferedWriter(osw)) {
+			for (Map.Entry<String, Integer> entry : sortedTeams) {
+				String team = entry.getKey();
+				int teamPoints = entry.getValue();
+				int teamGoalsFor = goalsFor.get(team);
+				int teamGoalsAgainst = goalsAgainst.get(team);
+				int teamGoalsDifference = goalsDifference.get(team);
+
+				bw.write(team  + ", " + teamPoints + ", " + teamGoalsFor + ", " + teamGoalsAgainst + ", " + teamGoalsDifference + "\n");
+			}
+		}
+	}
+
+	public static void specialLeagueTable(String filename, List<HandballMatch> matches) throws IOException {
+		Map<String, Integer> points = new HashMap<>();
+		Map<String, Integer> goalsFor = new HashMap<>();
+		Map<String, Integer> goalsAgainst = new HashMap<>();
+		Map<String, Integer> goalsDifference = new HashMap<>();
+
+		int homePoints;
+		int awayPoints;
+
+		for (HandballMatch i : matches) {
+			homePoints = 0;
+			awayPoints = 0;
+			if(i.getGoalsAwayTeam() > i.getGoalsHomeTeam()) {
+				awayPoints = 3;
+			} else if (i.getGoalsAwayTeam() == i.getGoalsHomeTeam()) {
+				awayPoints = 1;
+				homePoints = 1;
+			} else {
+				homePoints = 3;
+			}
+
+			if(points.containsKey(i.getHomeTeam()))
+			{
+				points.put(i.getHomeTeam(), homePoints + points.get(i.getHomeTeam()));
+
+			}
+			else
+				points.put(i.getHomeTeam(), homePoints);
+
+
+			if(points.containsKey(i.getAwayTeam()))
+			{
+				points.put(i.getAwayTeam(), awayPoints + points.get(i.getAwayTeam()));
+			}
+			else
+				points.put(i.getAwayTeam(), awayPoints);
+
+			goalsFor.put(i.getHomeTeam(), goalsFor.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsHomeTeam());
+			goalsAgainst.put(i.getHomeTeam(), goalsAgainst.getOrDefault(i.getHomeTeam(), 0) + i.getGoalsAwayTeam());
+			goalsDifference.put(i.getHomeTeam(), goalsDifference.getOrDefault(i.getHomeTeam(), 0) + (i.getGoalsHomeTeam() - i.getGoalsAwayTeam()));
+
+			goalsFor.put(i.getAwayTeam(), goalsFor.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsAwayTeam());
+			goalsAgainst.put(i.getAwayTeam(), goalsAgainst.getOrDefault(i.getAwayTeam(), 0) + i.getGoalsHomeTeam());
+			goalsDifference.put(i.getAwayTeam(), goalsDifference.getOrDefault(i.getAwayTeam(), 0) + (i.getGoalsAwayTeam() - i.getGoalsHomeTeam()));
+		}
+
+
+		List<Map.Entry<String, Integer>> sortedTeams = new ArrayList<>(points.entrySet());
+
+
+		for (int i = 0; i < sortedTeams.size(); i++) {
+			for (int j = i + 1; j < sortedTeams.size(); j++) {
+				Map.Entry<String, Integer> entry1 = sortedTeams.get(i);
+				Map.Entry<String, Integer> entry2 = sortedTeams.get(j);
+				if (entry1.getValue() < entry2.getValue()) {
+					Map.Entry<String, Integer> temp = entry1;
+					sortedTeams.set(i, entry2);
+					sortedTeams.set(j, temp);
+				} else if (entry1.getValue().equals(entry2.getValue())) {
+					int diff1 = goalsDifference.get(entry1.getKey());
+					int diff2 = goalsDifference.get(entry2.getKey());
+					if (diff1 != diff2) {
+						if (diff1 < diff2) {
+							Map.Entry<String, Integer> temp = entry1;
+							sortedTeams.set(i, entry2);
+							sortedTeams.set(j, temp);
+						}
+					} else {
+						int forG1 = goalsFor.get(entry1.getKey());
+						int forG2 = goalsFor.get(entry2.getKey());
+						if (forG1 != forG2) {
+							if (forG1 < forG2) {
+								Map.Entry<String, Integer> temp = entry1;
+								sortedTeams.set(i, entry2);
+								sortedTeams.set(j, temp);
+							}
+						} else {
+							String name1 = entry1.getKey();
+							String name2 = entry2.getKey();
+							if (name1.compareTo(name2) > 0) {
+								Map.Entry<String, Integer> temp = entry1;
+								sortedTeams.set(i, entry2);
+								sortedTeams.set(j, temp);
+							}
+						}
+					}
+				}
+			}
+		}
+
+
+		FileOutputStream fos = new FileOutputStream(filename);
+		OutputStreamWriter osw = new OutputStreamWriter(fos);
+		try (BufferedWriter bw = new BufferedWriter(osw)) {
+			for (Map.Entry<String, Integer> entry : sortedTeams) {
+				String team = entry.getKey();
+				int teamPoints = entry.getValue();
+				int teamGoalsFor = goalsFor.get(team);
+				int teamGoalsAgainst = goalsAgainst.get(team);
+				int teamGoalsDifference = goalsDifference.get(team);
+
+				bw.write(team  + ", " + teamPoints + ", " + teamGoalsFor + ", " + teamGoalsAgainst + ", " + teamGoalsDifference + "\n");
+			}
+		}
+	}
+}

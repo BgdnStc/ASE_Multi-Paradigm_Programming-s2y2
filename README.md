@@ -1,2 +1,2 @@
-# ASE_Seminars - Java-s2y2
+# ASE - Java-s2y2
 Java Programming - Multi-Paradigm Programming - Software Application Development in Java SE - Standard Edition
